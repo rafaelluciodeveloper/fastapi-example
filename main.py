@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from datetime import datetime
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -46,3 +47,18 @@ def delete_contact(contact_id: int):
         if contact.id == contact_id:
             return contacts.pop(i)
     raise HTTPException(status_code=404, detail="Contact not found")
+
+@app.get("/atualizacao/{numero_serie}")
+def get_atualizacao(numero_serie: str):
+    now = datetime.now()
+    # Format: ano.mes.dia.hora:minutes:segundo
+    formatted_date = now.strftime("%Y.%m.%d.%H:%M:%S")
+    
+    return {
+        "autorizaFolha": True,
+        "autorizaFiscal": True,
+        "autorizaContabil": True,
+        "versaoFolha": formatted_date,
+        "versaoFiscal": formatted_date,
+        "versaoContabil": formatted_date
+    }
