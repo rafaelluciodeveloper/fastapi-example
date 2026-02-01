@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from datetime import datetime
 
 import os
 from dotenv import load_dotenv
@@ -84,10 +85,61 @@ def get_atualizacao(numero_serie: str):
 
 class SincronizarBody(BaseModel):
     senha_sincronizar: str
+    folha_encontrado: bool
+    fiscal_encontrado: bool
+    contabil_encontrado: bool
 
 @app.post("/sincronizar/{numero_serie}")
 def sincronizar(numero_serie: str, body: SincronizarBody):
+    # Logica de decodificacao da senha
+    # Formato: d r d r m r m r y r y r (12 caracteres)
+    if len(body.senha_sincronizar) != 12:
+        raise HTTPException(status_code=400, detail="Senha formato inválido")
+    
+    decoded_date = ""
+    for i in range(0, 12, 2):
+        decoded_date += body.senha_sincronizar[i]
+    
+    current_date = datetime.now().strftime("%d%m%y")
+    
+    if decoded_date != current_date:
+        raise HTTPException(status_code=400, detail=f"Senha inválida. Esperado data atual ({current_date}), recebido {decoded_date}")
+
+    # Inserir no banco
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Usando INSERT ON DUPLICATE KEY UPDATE para garantir que atualize se ja existir
+        query = """
+        INSERT INTO atualizacao_autorizacao 
+        (numero_serie_atualizacao, autoriza_folha, autoriza_fiscal, autoriza_contabil)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+        autoriza_folha = VALUES(autoriza_folha),
+        autoriza_fiscal = VALUES(autoriza_fiscal),
+        autoriza_contabil = VALUES(autoriza_contabil)
+        """
+        cursor.execute(query, (
+            numero_serie, 
+            body.folha_encontrado, 
+            body.fiscal_encontrado, 
+            body.contabil_encontrado
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
     return {
-        "numero_serie": numero_serie,
-        "senha_sincronizar": body.senha_sincronizar
+        "status": "sucesso",
+        "messagem": "Sincronização realizada com sucesso",
+        "dados_atualizados": {
+            "numero_serie": numero_serie,
+            "autoriza_folha": body.folha_encontrado,
+            "autoriza_fiscal": body.fiscal_encontrado,
+            "autoriza_contabil": body.contabil_encontrado
+        }
     }
