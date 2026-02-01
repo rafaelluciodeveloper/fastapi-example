@@ -88,6 +88,7 @@ class SincronizarBody(BaseModel):
     folha_encontrado: bool
     fiscal_encontrado: bool
     contabil_encontrado: bool
+    documento:str
 
 @app.post("/sincronizar/{numero_serie}")
 def sincronizar(numero_serie: str, body: SincronizarBody):
@@ -112,18 +113,20 @@ def sincronizar(numero_serie: str, body: SincronizarBody):
         # Usando INSERT ON DUPLICATE KEY UPDATE para garantir que atualize se ja existir
         query = """
         INSERT INTO atualizacao_autorizacao 
-        (numero_serie_atualizacao, autoriza_folha, autoriza_fiscal, autoriza_contabil)
-        VALUES (%s, %s, %s, %s)
+        (numero_serie_atualizacao, autoriza_folha, autoriza_fiscal, autoriza_contabil, documento)
+        VALUES (%s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
         autoriza_folha = VALUES(autoriza_folha),
         autoriza_fiscal = VALUES(autoriza_fiscal),
-        autoriza_contabil = VALUES(autoriza_contabil)
+        autoriza_contabil = VALUES(autoriza_contabil),
+        documento = VALUES(documento)
         """
         cursor.execute(query, (
             numero_serie, 
             body.folha_encontrado, 
             body.fiscal_encontrado, 
-            body.contabil_encontrado
+            body.contabil_encontrado,
+            body.documento
         ))
         conn.commit()
     except Exception as e:
@@ -140,6 +143,7 @@ def sincronizar(numero_serie: str, body: SincronizarBody):
             "numero_serie": numero_serie,
             "autoriza_folha": body.folha_encontrado,
             "autoriza_fiscal": body.fiscal_encontrado,
-            "autoriza_contabil": body.contabil_encontrado
+            "autoriza_contabil": body.contabil_encontrado,
+            "documento": body.documento
         }
     }
