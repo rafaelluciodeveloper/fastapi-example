@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 import os
 from dotenv import load_dotenv
@@ -80,3 +81,13 @@ def get_atualizacao(numero_serie: str):
     }
     
     return {**autorizacao, **atualizacao}
+
+class SincronizarBody(BaseModel):
+    senha_sincronizar: str
+
+@app.post("/sincronizar/{numero_serie}")
+def sincronizar(numero_serie: str, body: SincronizarBody):
+    return {
+        "numero_serie": numero_serie,
+        "senha_sincronizar": body.senha_sincronizar
+    }
