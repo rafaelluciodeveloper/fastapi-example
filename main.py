@@ -54,9 +54,9 @@ def fetch_autorizacao(serie_atualizacao: str):
         row = cursor.fetchone()
         if row:
             return {
-                "autorizaFiscal": row.get("autoriza_fiscal"),
-                "autorizaContabil": row.get("autoriza_contabil"),
-                "autorizaFolha": row.get("autoriza_folha"),
+                "autorizaFiscal": bool(row.get("autoriza_fiscal")),
+                "autorizaContabil": bool(row.get("autoriza_contabil")),
+                "autorizaFolha": bool(row.get("autoriza_folha")),
                 "numeroSerieAutualizacao": row.get("numero_serie_atualizacao")
             }
         return None
