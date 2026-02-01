@@ -42,14 +42,14 @@ def fetch_atualizacao():
 
 def fetch_autorizacao(serie_atualizacao: str):
     """
-    Executes SELECT * FROM autorizacao_autorizacao WHERE serie_atualizacao = ?
+    Executes SELECT * FROM atualizacao_autorizacao WHERE serie_atualizacao = ?
     Returns properties: autorizaFiscal, autorizaContabil, autorizaFolha, numeroSerieAutualizacao
     """
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
         # Note: mysql-connector-python uses %s for placeholders
-        query = "SELECT * FROM autorizacao_autorizacao WHERE serie_atualizacao = %s LIMIT 1"
+        query = "SELECT * FROM atualizacao_autorizacao WHERE numero_serie_atualizacao = %s LIMIT 1"
         cursor.execute(query, (serie_atualizacao,))
         row = cursor.fetchone()
         if row:
