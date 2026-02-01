@@ -3,3 +3,5 @@ uvicorn
 pydantic
 pytest
 httpx
+mysql-connector-python
+python-dotenv

@@ -1,64 +1,82 @@
-from fastapi import FastAPI, HTTPException
-from datetime import datetime
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi import FastAPI
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-class Contact(BaseModel):
-    id: Optional[int] = None
-    name: str
-    phone: str
+# Database configuration - Loaded from environment variables
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', 'test_db')
+}
 
-contacts: List[Contact] = []
-next_id = 1
+def get_db_connection():
+    import mysql.connector
+    return mysql.connector.connect(**DB_CONFIG)
 
-@app.post("/contacts/", response_model=Contact)
-def create_contact(contact: Contact):
-    global next_id
-    contact.id = next_id
-    next_id += 1
-    contacts.append(contact)
-    return contact
+def fetch_atualizacao():
+    """
+    Executes SELECT * FROM atualizacao ORDER BY data_publicacao DESC LIMIT 1
+    Returns properties map with keys: versaoFolha, versaoFiscal, versaoContabil
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM atualizacao ORDER BY data_publicacao DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row:
+            return {
+                "versaoFolha": row.get("versao_folha"),
+                "versaoFiscal": row.get("versao_fiscal"),
+                "versaoContabil": row.get("versao_contabil")
+            }
+        return None
+    finally:
+        cursor.close()
+        conn.close()
 
-@app.get("/contacts/", response_model=List[Contact])
-def read_contacts():
-    return contacts
-
-@app.get("/contacts/{contact_id}", response_model=Contact)
-def read_contact(contact_id: int):
-    for contact in contacts:
-        if contact.id == contact_id:
-            return contact
-    raise HTTPException(status_code=404, detail="Contact not found")
-
-@app.put("/contacts/{contact_id}", response_model=Contact)
-def update_contact(contact_id: int, updated_contact: Contact):
-    for i, contact in enumerate(contacts):
-        if contact.id == contact_id:
-            updated_contact.id = contact_id
-            contacts[i] = updated_contact
-            return updated_contact
-    raise HTTPException(status_code=404, detail="Contact not found")
-
-@app.delete("/contacts/{contact_id}", response_model=Contact)
-def delete_contact(contact_id: int):
-    for i, contact in enumerate(contacts):
-        if contact.id == contact_id:
-            return contacts.pop(i)
-    raise HTTPException(status_code=404, detail="Contact not found")
+def fetch_autorizacao(serie_atualizacao: str):
+    """
+    Executes SELECT * FROM autorizacao_autorizacao WHERE serie_atualizacao = ?
+    Returns properties: autorizaFiscal, autorizaContabil, autorizaFolha, numeroSerieAutualizacao
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Note: mysql-connector-python uses %s for placeholders
+        query = "SELECT * FROM autorizacao_autorizacao WHERE serie_atualizacao = %s LIMIT 1"
+        cursor.execute(query, (serie_atualizacao,))
+        row = cursor.fetchone()
+        if row:
+            return {
+                "autorizaFiscal": row.get("autoriza_fiscal"),
+                "autorizaContabil": row.get("autoriza_contabil"),
+                "autorizaFolha": row.get("autoriza_folha"),
+                "numeroSerieAutualizacao": row.get("numero_serie_atualizacao")
+            }
+        return None
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.get("/atualizacao/{numero_serie}")
 def get_atualizacao(numero_serie: str):
-    now = datetime.now()
-    # Format: ano.mes.dia.hora:minutes:segundo
-    formatted_date = now.strftime("%Y.%m.%d.%H:%M:%S")
-    
-    return {
-        "autorizaFolha": True,
-        "autorizaFiscal": True,
-        "autorizaContabil": True,
-        "versaoFolha": formatted_date,
-        "versaoFiscal": formatted_date,
-        "versaoContabil": formatted_date
+    autorizacao = fetch_autorizacao(numero_serie) or {
+        "autorizaFolha": False,
+        "autorizaFiscal": False,
+        "autorizaContabil": False,
+        "numeroSerieAutualizacao": None
     }
+    
+    atualizacao = fetch_atualizacao() or {
+        "versaoFolha": None,
+        "versaoFiscal": None,
+        "versaoContabil": None
+    }
+    
+    return {**autorizacao, **atualizacao}
