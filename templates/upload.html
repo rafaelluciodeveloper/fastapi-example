@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Upload Seguro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            color: #fff;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: #fff;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.3);
+            color: #fff;
+            box-shadow: none;
+        }
+
+        .btn-primary {
+            background: #00d2ff;
+            background: linear-gradient(to right, #3a7bd5, #00d2ff);
+            border: none;
+            width: 100%;
+            padding: 10px;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .animate-fade {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .spinner-border {
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 10px;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card p-4 animate-fade">
+        <div class="card-body">
+            <h3 class="text-center mb-4">Sistema de Upload</h3>
+
+            <!-- Login Section -->
+            <div id="login-section">
+                <div class="mb-3">
+                    <label for="password" class="form-label">Senha de Acesso</label>
+                    <input type="password" class="form-control" id="password" placeholder="Digite sua senha">
+                </div>
+                <button class="btn btn-primary" onclick="verifyPassword()">Acessar</button>
+                <div id="login-error" class="text-danger mt-2 text-center hidden">Senha incorreta!</div>
+            </div>
+
+            <!-- Upload Section -->
+            <div id="upload-section" class="hidden">
+                <p class="text-center text-white-50 mb-4">Autenticado com sucesso</p>
+
+                <div class="mb-3">
+                    <label class="form-label">Módulo Folha</label>
+                    <input type="file" class="form-control" id="fileFolha">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Módulo Fiscal</label>
+                    <input type="file" class="form-control" id="fileFiscal">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Módulo Contábil</label>
+                    <input type="file" class="form-control" id="fileContabil">
+                </div>
+
+                <div class="progress mb-3 hidden" id="progress-container" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar"
+                        id="progressBar" style="width: 0%">0%</div>
+                </div>
+
+                <button class="btn btn-primary d-flex align-items-center justify-content-center" id="uploadBtn"
+                    onclick="uploadAndSync()">
+                    <span id="btnText">Enviar e Sincronizar</span>
+                </button>
+                <div id="upload-status" class="status-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function verifyPassword() {
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            try {
+                const formData = new FormData();
+                formData.append('password', password);
+
+                const response = await fetch('/admin/verify-password', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('upload-section').classList.remove('hidden');
+                    document.getElementById('upload-section').classList.add('animate-fade');
+                } else {
+                    errorDiv.classList.remove('hidden');
+                    document.getElementById('password').classList.add('is-invalid');
+                    setTimeout(() => document.getElementById('password').classList.remove('is-invalid'), 500);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.textContent = 'Erro ao conectar com o servidor.';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        function uploadAndSync() {
+            const fileFolha = document.getElementById('fileFolha').files[0];
+            const fileFiscal = document.getElementById('fileFiscal').files[0];
+            const fileContabil = document.getElementById('fileContabil').files[0];
+
+            const btn = document.getElementById('uploadBtn');
+            const btnText = document.getElementById('btnText');
+            const statusDiv = document.getElementById('upload-status');
+            const password = document.getElementById('password').value;
+
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progressBar');
+
+            if (!fileFolha && !fileFiscal && !fileContabil) {
+                statusDiv.textContent = "Selecione ao menos um arquivo para enviar.";
+                statusDiv.style.color = "#ff6b6b";
+                return;
+            }
+
+            // Client-side validation
+            if (fileFolha && !fileFolha.name.toLowerCase().includes("folha")) {
+                statusDiv.textContent = "Erro: O arquivo selecionado para o campo Módulo Folha parece incorreto. Verifique se selecionou o arquivo certo.";
+                statusDiv.style.color = "#ff6b6b";
+                return;
+            }
+            if (fileFiscal && !fileFiscal.name.toLowerCase().includes("fiscal")) {
+                statusDiv.textContent = "Erro: O arquivo selecionado para o campo Módulo Fiscal parece incorreto. Verifique se selecionou o arquivo certo.";
+                statusDiv.style.color = "#ff6b6b";
+                return;
+            }
+            if (fileContabil) {
+                const name = fileContabil.name.toLowerCase();
+                if (!name.includes("contabil") && !name.includes("contábil")) {
+                    statusDiv.textContent = "Erro: O arquivo selecionado para o campo Módulo Contábil parece incorreto. Verifique se selecionou o arquivo certo.";
+                    statusDiv.style.color = "#ff6b6b";
+                    return;
+                }
+            }
+
+            // UI Reset
+            statusDiv.textContent = "";
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressBar.innerText = '0%';
+            progressBar.classList.remove('bg-danger', 'bg-primary');
+            progressBar.classList.add('bg-success');
+
+            btn.disabled = true;
+            btnText.innerHTML = '<div class="spinner-border spinner-border-sm text-light" role="status"></div> Enviando...';
+
+            const formData = new FormData();
+            formData.append('password', password);
+
+            if (fileFolha) {
+                formData.append('file_folha', fileFolha);
+                formData.append('ts_folha', fileFolha.lastModified);
+            }
+            if (fileFiscal) {
+                formData.append('file_fiscal', fileFiscal);
+                formData.append('ts_fiscal', fileFiscal.lastModified);
+            }
+            if (fileContabil) {
+                formData.append('file_contabil', fileContabil);
+                formData.append('ts_contabil', fileContabil.lastModified);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/admin/upload-files-sync', true);
+
+            // Upload progress
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+
+                    if (percentComplete >= 100) {
+                        progressBar.style.width = '100%';
+                        progressBar.innerText = 'Enviando para FTP...';
+                    } else {
+                        const percentStr = Math.round(percentComplete) + '%';
+                        progressBar.style.width = percentStr;
+                        progressBar.innerText = percentStr;
+                    }
+                }
+            };
+
+            xhr.onload = function () {
+                btn.disabled = false;
+                btnText.innerText = "Enviar e Sincronizar";
+
+                if (xhr.status === 200) {
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        statusDiv.innerText = result.message || "Sucesso!";
+                        statusDiv.style.color = "#51cf66";
+
+                        // Clear inputs
+                        document.getElementById('fileFolha').value = '';
+                        document.getElementById('fileFiscal').value = '';
+                        document.getElementById('fileContabil').value = '';
+
+                        // Hide progress bar on success to avoid confusion
+                        progressContainer.classList.add('hidden');
+
+                    } catch (e) {
+                        statusDiv.innerText = "Erro ao processar resposta do servidor.";
+                        statusDiv.style.color = "#ff6b6b";
+                    }
+                } else {
+                    let errorMsg = "Erro desconhecido";
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        errorMsg = result.detail || errorMsg;
+                    } catch (e) { }
+                    statusDiv.innerText = "Falha: " + errorMsg;
+                    statusDiv.style.color = "#ff6b6b";
+
+                    // Red progress bar
+                    progressBar.classList.remove('bg-success');
+                    progressBar.classList.add('bg-danger');
+                }
+            };
+
+            xhr.onerror = function () {
+                btn.disabled = false;
+                btnText.innerText = "Enviar e Sincronizar";
+                statusDiv.innerText = "Erro de rede ao tentar enviar arquivo.";
+                statusDiv.style.color = "#ff6b6b";
+            };
+
+            xhr.send(formData);
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
