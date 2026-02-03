@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 import ftplib
 from typing import Optional
 import io
@@ -16,6 +16,10 @@ from datetime import datetime
 load_dotenv()
 
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/admin/upload")
 
 # Database configuration - Loaded from environment variables
 DB_CONFIG = {
